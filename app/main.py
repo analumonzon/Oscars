@@ -9,9 +9,17 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.ballot_loader import BallotError, load_ballot
-from app.db import get_conn, get_setting, init_db, set_setting, utc_now
+from app.db import (
+    get_conn,
+    get_setting,
+    init_db,
+    load_ballot_from_db,
+    replace_ballot,
+    set_setting,
+    utc_now,
+)
 
-BALLOT_PATH = os.environ.get("OSCARS_BALLOT_PATH", "docs/Oscar-Ballot-2026.xlsx")
+BALLOT_PATH = os.environ.get("OSCARS_BALLOT_PATH", "docs/OscarBallotList.csv")
 ADMIN_KEY = os.environ.get("OSCARS_ADMIN_KEY")
 
 app = FastAPI(title="Oscars Ballot")
@@ -22,11 +30,16 @@ templates = Jinja2Templates(directory="app/templates")
 init_db()
 
 try:
-    BALLOT = load_ballot(BALLOT_PATH)
+    file_ballot = load_ballot(BALLOT_PATH)
 except BallotError as exc:
     raise RuntimeError(str(exc)) from exc
 
-BALLOT_BY_KEY = {item["key"]: item for item in BALLOT}
+conn = get_conn()
+try:
+    replace_ballot(conn, file_ballot)
+    BALLOT = load_ballot_from_db(conn)
+finally:
+    conn.close()
 
 
 def _require_admin(request: Request) -> None:

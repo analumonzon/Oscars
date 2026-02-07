@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import re
 from pathlib import Path
 from typing import Any
@@ -32,7 +33,18 @@ def _find_index(headers: list[str], keywords: list[str]) -> int:
     return -1
 
 
-def load_ballot(path: str | Path) -> list[dict[str, Any]]:
+def _finalize(categories: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for category in categories.values():
+        if category["points"] is None:
+            raise BallotError(f"Missing points for category '{category['name']}'.")
+        if not category["nominees"]:
+            raise BallotError(f"No nominees found for category '{category['name']}'.")
+        result.append(category)
+    return sorted(result, key=lambda item: item["name"].lower())
+
+
+def _load_from_xlsx(path: Path) -> list[dict[str, Any]]:
     wb = load_workbook(path, data_only=True)
     ws = wb.active
     rows = list(ws.iter_rows(values_only=True))
@@ -84,12 +96,52 @@ def load_ballot(path: str | Path) -> list[dict[str, Any]]:
         if nominee:
             categories[key]["nominees"].append(nominee)
 
-    result: list[dict[str, Any]] = []
-    for category in categories.values():
-        if category["points"] is None:
-            raise BallotError(f"Missing points for category '{category['name']}'.")
-        if not category["nominees"]:
-            raise BallotError(f"No nominees found for category '{category['name']}'.")
-        result.append(category)
+    return _finalize(categories)
 
-    return sorted(result, key=lambda item: item["name"].lower())
+
+def _load_from_csv(path: Path) -> list[dict[str, Any]]:
+    categories: dict[str, dict[str, Any]] = {}
+    with path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.reader(handle)
+        rows = [row for row in reader if any(cell.strip() for cell in row)]
+
+    if not rows:
+        raise BallotError("Ballot CSV is empty.")
+
+    header = [cell.strip().lower() for cell in rows[0]]
+    has_header = any(keyword in " ".join(header) for keyword in ("category", "nominee", "points"))
+    data_rows = rows[1:] if has_header else rows
+
+    for row in data_rows:
+        if len(row) < 3:
+            raise BallotError("Each CSV row must include category, points, and nominees.")
+
+        category = row[0].strip()
+        if not category:
+            continue
+
+        try:
+            points = int(row[1].strip())
+        except ValueError as exc:
+            raise BallotError(f"Invalid points value: {row[1]!r}") from exc
+
+        nominees = [cell.strip() for cell in row[2:] if cell.strip()]
+        if not nominees:
+            raise BallotError(f"No nominees found for category '{category}'.")
+
+        key = slugify(category)
+        if key not in categories:
+            categories[key] = {"key": key, "name": category, "points": points, "nominees": []}
+        elif categories[key]["points"] != points:
+            raise BallotError(f"Conflicting points for category '{category}'.")
+
+        categories[key]["nominees"].extend(nominees)
+
+    return _finalize(categories)
+
+
+def load_ballot(path: str | Path) -> list[dict[str, Any]]:
+    ballot_path = Path(path)
+    if ballot_path.suffix.lower() == ".csv":
+        return _load_from_csv(ballot_path)
+    return _load_from_xlsx(ballot_path)
