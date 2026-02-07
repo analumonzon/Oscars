@@ -1,0 +1,156 @@
+:root {
+  --gold: #c5a036;
+  --night: #0f1014;
+  --paper: #f8f4ec;
+  --accent: #2f2a1f;
+  --muted: #6e6657;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Georgia", "Times New Roman", serif;
+  background: linear-gradient(135deg, #0f1014 0%, #1b1d23 50%, #0f1014 100%);
+  color: var(--paper);
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  background: rgba(15, 16, 20, 0.85);
+  border-bottom: 1px solid rgba(197, 160, 54, 0.3);
+}
+
+.brand {
+  font-size: 1.4rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.nav-links a {
+  color: var(--paper);
+  margin-left: 16px;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.nav-links a:hover {
+  color: var(--gold);
+}
+
+.content {
+  max-width: 960px;
+  margin: 32px auto 64px;
+  padding: 0 20px;
+}
+
+.card {
+  background: var(--paper);
+  color: var(--accent);
+  padding: 24px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+h1, h2 {
+  margin-top: 0;
+  font-weight: 600;
+}
+
+.notice {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.error {
+  color: #b12d2d;
+  font-weight: 600;
+}
+
+.ballot-form {
+  display: grid;
+  gap: 16px;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.text-input, .select-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #d6cbb1;
+  font-size: 1rem;
+}
+
+.points {
+  margin: 4px 0 16px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.choices {
+  display: grid;
+  gap: 10px;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #e5dccb;
+  cursor: pointer;
+  background: #fff;
+}
+
+.primary {
+  background: var(--gold);
+  color: #111;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.primary:hover {
+  background: #d7b44a;
+}
+
+.leaderboard {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.leaderboard th,
+.leaderboard td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid #e7dec8;
+}
+
+@media (max-width: 700px) {
+  .site-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .nav-links a {
+    margin-left: 0;
+    margin-right: 12px;
+  }
+}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="card">
+    <h1>Leaderboard</h1>
+    {% if leaders %}
+      <table class="leaderboard">
+        <thead>
+          <tr>
+            <th>Guest</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in leaders %}
+            <tr>
+              <td>{{ row.guest_name }}</td>
+              <td>{{ row.score }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No ballots yet. Check back after submissions.</p>
+    {% endif %}
+  </section>
+{% endblock %}

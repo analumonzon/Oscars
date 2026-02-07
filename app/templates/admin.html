@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="card">
+    <h1>Admin</h1>
+    {% if locked %}
+      <p class="notice">Ballots are locked.</p>
+    {% else %}
+      <form method="post" action="/admin/lock">
+        <button class="primary" type="submit">Lock ballots</button>
+      </form>
+    {% endif %}
+  </section>
+
+  <form method="post" action="/admin/winners" class="ballot-form">
+    {% for category in ballot %}
+      <section class="card">
+        <h2>{{ category.name }}</h2>
+        <p class="points">Worth {{ category.points }} points</p>
+        <select name="winner_{{ category.key }}" class="select-input">
+          <option value="">Select winner</option>
+          {% for nominee in category.nominees %}
+            {% set selected = winners.get(category.key, {}).get('nominee') == nominee %}
+            <option value="{{ nominee }}" {% if selected %}selected{% endif %}>{{ nominee }}</option>
+          {% endfor %}
+        </select>
+      </section>
+    {% endfor %}
+    <button class="primary" type="submit">Save winners</button>
+  </form>
+
+  <section class="card">
+    <h2>Leaderboard</h2>
+    {% if leaders %}
+      <table class="leaderboard">
+        <thead>
+          <tr>
+            <th>Guest</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in leaders %}
+            <tr>
+              <td>{{ row.guest_name }}</td>
+              <td>{{ row.score }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No ballots submitted yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

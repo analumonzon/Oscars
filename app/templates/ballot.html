@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="card">
+    <h1>2026 Oscars Ballot</h1>
+    {% if locked %}
+      <p class="notice">Ballots are locked. Thanks for playing.</p>
+    {% else %}
+      <p>Pick one winner per category. Points are shown per category.</p>
+    {% endif %}
+    {% if error %}
+      <p class="error">{{ error }}</p>
+    {% endif %}
+  </section>
+
+  {% if not locked %}
+    <form class="ballot-form" method="post" action="/submit">
+      <section class="card">
+        <label class="field-label" for="guest_name">Your name</label>
+        <input id="guest_name" name="guest_name" class="text-input" required>
+      </section>
+
+      {% for category in ballot %}
+        <section class="card">
+          <h2>{{ category.name }}</h2>
+          <p class="points">Worth {{ category.points }} points</p>
+          <div class="choices">
+            {% for nominee in category.nominees %}
+              <label class="choice">
+                <input type="radio" name="category_{{ category.key }}" value="{{ nominee }}" required>
+                <span>{{ nominee }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+
+      <button class="primary" type="submit">Submit ballot</button>
+    </form>
+  {% endif %}
+{% endblock %}
