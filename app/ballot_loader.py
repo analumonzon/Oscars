@@ -41,7 +41,7 @@ def _finalize(categories: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
         if not category["nominees"]:
             raise BallotError(f"No nominees found for category '{category['name']}'.")
         result.append(category)
-    return sorted(result, key=lambda item: item["name"].lower())
+    return result
 
 
 def _load_from_xlsx(path: Path) -> list[dict[str, Any]]:
