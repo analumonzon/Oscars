@@ -1,13 +1,13 @@
 # Oscars Ballot Tool
 
 Local web app for Oscar party guests to submit ballots, track winners, and view a live leaderboard.
-The ballot file is loaded on first startup and persisted into SQLite.
+The ballot file is loaded on first startup and persisted into the configured database.
 
 ## Features
 - Digital ballot form with one pick per category
 - Admin page to lock ballots and enter winners
 - Automatic scoring with live leaderboard
-- Data stored locally in SQLite
+- Data stored in SQLite (local) or Postgres (managed)
 
 ## Requirements
 - Python 3.10+
@@ -17,14 +17,40 @@ The ballot file is loaded on first startup and persisted into SQLite.
 	```bash
 	pip install -r requirements.txt
 	```
-2. Ensure your ballot CSV is present at docs/OscarBallotList.csv (or set OSCARS_BALLOT_PATH).
+2. Configure environment variables:
+	- For local SQLite dev, copy values from `.env.local`
+	- For Cloud Run/Postgres, use `.env.cloudrun.example` as your template
+3. Ensure your ballot CSV is present at docs/OscarBallotList.csv (or set OSCARS_BALLOT_PATH).
 	On first startup (or when the DB is empty), the ballot in SQLite is initialized from the file.
-3. Run the app:
+4. Run the app:
 	```bash
 	uvicorn app.main:app --host 0.0.0.0 --port 8000
 	```
+	Or use:
+	```bash
+	./run-local.sh
+	```
 
 Open http://localhost:8000 on your laptop. Share the same URL (with your laptop IP) via email or QR code.
+
+## Run Local Helper
+Use `run-local.sh` for local development. It loads `.env.local` automatically and starts Uvicorn.
+
+```bash
+./run-local.sh
+```
+
+Optional overrides:
+
+```bash
+HOST=127.0.0.1 PORT=9000 RELOAD=false ./run-local.sh
+```
+
+If needed on a fresh clone, make it executable once:
+
+```bash
+chmod +x ./run-local.sh
+```
 
 ## CSV Format
 Each row is:
@@ -46,9 +72,12 @@ Then open:
 http://localhost:8000/admin?key=your-secret
 ```
 
+For local development, you can leave `OSCARS_ADMIN_KEY` empty in `.env.local` to keep `/admin` open.
+
 ## Environment Variables
 - OSCARS_BALLOT_PATH: path to the CSV or XLSX ballot file (default: docs/OscarBallotList.csv)
 - OSCARS_ADMIN_KEY: optional admin key for /admin
+- OSCARS_DATABASE_URL: full SQLAlchemy DB URL (recommended for production), e.g. postgresql+psycopg://USER:PASSWORD@HOST:5432/DBNAME
 - OSCARS_DB_PATH: path to SQLite file (default: data/oscars.db)
 - OSCARS_RESET_BALLOT_ON_START: if true, reloads ballot file and clears existing votes/winners on startup (default: false)
 
@@ -59,6 +88,8 @@ No. GitHub Pages only hosts static sites, and this app requires a running FastAP
 
 ### Recommended: Google Cloud Run
 This repo includes a `Dockerfile` for container deployment.
+
+Create a managed Postgres instance first (Cloud SQL), then use its connection URL in `OSCARS_DATABASE_URL`.
 
 1. Set your project and enable required services:
 	```bash
@@ -78,11 +109,20 @@ This repo includes a `Dockerfile` for container deployment.
 	  --region us-central1 \
 	  --platform managed \
 	  --allow-unauthenticated \
-	  --set-env-vars OSCARS_ADMIN_KEY=YOUR_SECRET
+	  --set-env-vars OSCARS_ADMIN_KEY=YOUR_SECRET,OSCARS_DATABASE_URL='postgresql+psycopg://USER:PASSWORD@HOST:5432/DBNAME'
 	```
 
 4. Open the service URL from the deploy output.
 
+5. Verify service + database connectivity:
+	```bash
+	curl https://YOUR_CLOUD_RUN_URL/healthz
+	```
+	Expected healthy response:
+	```json
+	{"status":"ok","database":"ok"}
+	```
+
 ### Data Persistence Note
-Cloud Run local filesystem is ephemeral. With the current SQLite setup, data can be lost on instance replacement.
-For production persistence, move to a managed database (for example Cloud SQL Postgres) before event day.
+Cloud Run local filesystem is ephemeral, so SQLite is best only for local/dev.
+For production, use `OSCARS_DATABASE_URL` with managed Postgres.

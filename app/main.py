@@ -4,19 +4,24 @@ import os
 from typing import Any
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import insert, select, text
 
 from app.ballot_loader import BallotError, load_ballot
 from app.db import (
+    ballots,
+    guests,
     get_conn,
     get_setting,
     init_db,
     load_ballot_from_db,
     replace_ballot,
+    selections,
     set_setting,
     utc_now,
+    winners,
 )
 
 BALLOT_PATH = os.environ.get("OSCARS_BALLOT_PATH", "docs/OscarBallotList.csv")
@@ -68,7 +73,9 @@ def _ballots_locked() -> bool:
 def _load_winners() -> dict[str, dict[str, Any]]:
     conn = get_conn()
     try:
-        rows = conn.execute("SELECT category_key, nominee, points FROM winners").fetchall()
+        rows = conn.execute(
+            select(winners.c.category_key, winners.c.nominee, winners.c.points)
+        ).mappings().all()
         return {row["category_key"]: dict(row) for row in rows}
     finally:
         conn.close()
@@ -78,7 +85,8 @@ def _leaderboard() -> list[dict[str, Any]]:
     conn = get_conn()
     try:
         rows = conn.execute(
-            """
+            text(
+                """
             SELECT g.name AS guest_name,
                    COALESCE(SUM(CASE WHEN s.nominee = w.nominee THEN w.points ELSE 0 END), 0) AS score
             FROM guests g
@@ -88,7 +96,8 @@ def _leaderboard() -> list[dict[str, Any]]:
             GROUP BY g.name
             ORDER BY score DESC, g.name ASC
             """
-        ).fetchall()
+            )
+        ).mappings().all()
         return [dict(row) for row in rows]
     finally:
         conn.close()
@@ -117,7 +126,7 @@ async def submit_ballot(request: Request, guest_name: str = Form(...)) -> Redire
         return RedirectResponse(url="/?error=Name%20is%20required", status_code=303)
 
     form = await request.form()
-    selections: dict[str, str] = {}
+    picks: dict[str, str] = {}
     for category in BALLOT:
         field_name = f"category_{category['key']}"
         nominee = form.get(field_name)
@@ -126,31 +135,31 @@ async def submit_ballot(request: Request, guest_name: str = Form(...)) -> Redire
                 url=f"/?error=Missing%20selection%20for%20{category['name']}",
                 status_code=303,
             )
-        selections[category["key"]] = nominee
+        picks[category["key"]] = nominee
 
     conn = get_conn()
     try:
-        with conn:
+        with conn.begin():
             row = conn.execute(
-                "SELECT id FROM guests WHERE name = ?",
-                (name,),
-            ).fetchone()
+                select(guests.c.id).where(guests.c.name == name)
+            ).first()
             if row:
                 return RedirectResponse(
                     url="/?error=This%20name%20already%20submitted%20a%20ballot",
                     status_code=303,
                 )
             guest_id = conn.execute(
-                "INSERT INTO guests (name, created_at) VALUES (?, ?)",
-                (name, utc_now()),
-            ).lastrowid
+                insert(guests).values(name=name, created_at=utc_now())
+            ).inserted_primary_key[0]
             ballot_id = conn.execute(
-                "INSERT INTO ballots (guest_id, created_at) VALUES (?, ?)",
-                (guest_id, utc_now()),
-            ).lastrowid
-            conn.executemany(
-                "INSERT INTO selections (ballot_id, category_key, nominee) VALUES (?, ?, ?)",
-                [(ballot_id, key, nominee) for key, nominee in selections.items()],
+                insert(ballots).values(guest_id=guest_id, created_at=utc_now())
+            ).inserted_primary_key[0]
+            conn.execute(
+                insert(selections),
+                [
+                    {"ballot_id": ballot_id, "category_key": key, "nominee": nominee}
+                    for key, nominee in picks.items()
+                ],
             )
     finally:
         conn.close()
@@ -164,6 +173,21 @@ async def leaderboard(request: Request) -> HTMLResponse:
         "leaderboard.html",
         {"request": request, "leaders": _leaderboard()},
     )
+
+
+@app.get("/healthz", response_model=None)
+async def healthz():
+    conn = get_conn()
+    try:
+        conn.execute(text("SELECT 1"))
+        return {"status": "ok", "database": "ok"}
+    except Exception:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "database": "unreachable"},
+        )
+    finally:
+        conn.close()
 
 
 @app.get("/admin", response_class=HTMLResponse)
@@ -187,7 +211,7 @@ async def lock_ballots(request: Request) -> RedirectResponse:
     _require_admin(request)
     conn = get_conn()
     try:
-        with conn:
+        with conn.begin():
             if get_setting(conn, "locked_at") is None:
                 set_setting(conn, "locked_at", utc_now())
     finally:
@@ -202,16 +226,22 @@ async def set_winners(request: Request) -> RedirectResponse:
     form = await request.form()
     conn = get_conn()
     try:
-        with conn:
+        with conn.begin():
             for category in BALLOT:
                 field_name = f"winner_{category['key']}"
                 nominee = form.get(field_name)
                 if not nominee:
                     continue
                 conn.execute(
-                    "INSERT INTO winners (category_key, nominee, points) VALUES (?, ?, ?)"
-                    " ON CONFLICT(category_key) DO UPDATE SET nominee = excluded.nominee, points = excluded.points",
-                    (category["key"], nominee, category["points"]),
+                    text(
+                        "INSERT INTO winners (category_key, nominee, points) VALUES (:category_key, :nominee, :points) "
+                        "ON CONFLICT(category_key) DO UPDATE SET nominee = excluded.nominee, points = excluded.points"
+                    ),
+                    {
+                        "category_key": category["key"],
+                        "nominee": nominee,
+                        "points": category["points"],
+                    },
                 )
     finally:
         conn.close()
