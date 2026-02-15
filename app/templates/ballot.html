@@ -1,8 +1,18 @@
 {% extends "base.html" %}
 
 {% block content %}
+  <section class="card ballot-toolbar">
+    <div class="ballot-toolbar__row">
+      <h1>2026 Oscars Ballot</h1>
+      {% if not locked %}
+        <div class="ballot-toolbar__actions">
+          <button class="primary" type="submit" form="ballot-form">Submit ballot</button>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+
   <section class="card">
-    <h1>2026 Oscars Ballot</h1>
     {% if locked %}
       <p class="notice">Ballots are locked. Thanks for playing.</p>
     {% else %}
@@ -14,7 +24,7 @@
   </section>
 
   {% if not locked %}
-    <form class="ballot-form" method="post" action="/submit">
+    <form class="ballot-form" method="post" action="/submit" id="ballot-form">
       <section class="card">
         <label class="field-label" for="guest_name">Your name</label>
         <input id="guest_name" name="guest_name" class="text-input" required>
@@ -35,7 +45,6 @@
         </section>
       {% endfor %}
 
-      <button class="primary" type="submit">Submit ballot</button>
     </form>
   {% endif %}
 {% endblock %}

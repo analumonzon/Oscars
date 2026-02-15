@@ -1,18 +1,26 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <section class="card">
-    <h1>Admin</h1>
-    {% if locked %}
-      <p class="notice">Ballots are locked.</p>
-    {% else %}
-      <form method="post" action="/admin/lock">
-        <button class="primary" type="submit">Lock ballots</button>
-      </form>
-    {% endif %}
+  <section class="card admin-toolbar">
+    <div class="admin-toolbar__row">
+      <div>
+        <h1>Admin</h1>
+        {% if locked %}
+          <p class="notice">Ballots are locked.</p>
+        {% endif %}
+      </div>
+      <div class="admin-toolbar__actions">
+        {% if not locked %}
+          <form method="post" action="/admin/lock">
+            <button class="primary" type="submit">Lock ballots</button>
+          </form>
+        {% endif %}
+        <button class="primary" type="submit" form="winners-form">Save winners</button>
+      </div>
+    </div>
   </section>
 
-  <form method="post" action="/admin/winners" class="ballot-form">
+  <form method="post" action="/admin/winners" class="ballot-form" id="winners-form">
     {% for category in ballot %}
       <section class="card">
         <h2>{{ category.name }}</h2>
@@ -26,7 +34,6 @@
         </select>
       </section>
     {% endfor %}
-    <button class="primary" type="submit">Save winners</button>
   </form>
 
   <section class="card">

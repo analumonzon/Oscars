@@ -18,11 +18,14 @@ body {
 }
 
 .site-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 20px 32px;
-  background: rgba(15, 16, 20, 0.85);
+  background: rgba(15, 16, 20, 0.95);
   border-bottom: 1px solid rgba(197, 160, 54, 0.3);
 }
 
@@ -48,6 +51,54 @@ body {
   max-width: 960px;
   margin: 32px auto 64px;
   padding: 0 20px;
+}
+
+.admin-toolbar {
+  position: sticky;
+  top: 86px;
+  z-index: 30;
+}
+
+.admin-toolbar__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.admin-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-toolbar__actions form {
+  margin: 0;
+}
+
+.ballot-toolbar {
+  position: sticky;
+  top: 86px;
+  z-index: 30;
+}
+
+.ballot-toolbar__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ballot-toolbar__row h1 {
+  margin-bottom: 0;
+}
+
+.ballot-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .card {
