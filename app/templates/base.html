@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Oscars Ballot</title>
+  <title>Oscars 2026</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <header class="site-header">
-    <div class="brand">Oscars Ballot</div>
+    <div class="brand">Oscars 2026 at Ray's</div>
     <nav class="nav-links">
-      <a href="/">Ballot</a>
-      <a href="/leaderboard">Leaderboard</a>
-      <a href="/admin">Admin</a>
+      <a href="/" class="nav-link {% block nav_ballot_active %}{% endblock %}">Ballot</a>
+      <a href="/leaderboard" class="nav-link {% block nav_leaderboard_active %}{% endblock %}">Leaderboard</a>
+      <a href="/admin" class="nav-link {% block nav_admin_active %}{% endblock %}">Admin</a>
     </nav>
   </header>
   <main class="content">

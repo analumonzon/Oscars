@@ -21,6 +21,11 @@ from app.db import (
 
 BALLOT_PATH = os.environ.get("OSCARS_BALLOT_PATH", "docs/OscarBallotList.csv")
 ADMIN_KEY = os.environ.get("OSCARS_ADMIN_KEY")
+RESET_BALLOT_ON_START = os.environ.get("OSCARS_RESET_BALLOT_ON_START", "false").lower() in {
+    "1",
+    "true",
+    "yes",
+}
 
 app = FastAPI(title="Oscars Ballot")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -36,7 +41,9 @@ except BallotError as exc:
 
 conn = get_conn()
 try:
-    replace_ballot(conn, file_ballot)
+    existing_ballot = load_ballot_from_db(conn)
+    if RESET_BALLOT_ON_START or not existing_ballot:
+        replace_ballot(conn, file_ballot)
     BALLOT = load_ballot_from_db(conn)
 finally:
     conn.close()

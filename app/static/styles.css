@@ -4,6 +4,7 @@
   --paper: #f8f4ec;
   --accent: #2f2a1f;
   --muted: #6e6657;
+  --sticky-offset: 86px;
 }
 
 * {
@@ -36,15 +37,22 @@ body {
   color: var(--gold);
 }
 
-.nav-links a {
+.nav-link {
   color: var(--paper);
   margin-left: 16px;
   text-decoration: none;
   font-size: 0.95rem;
+  font-weight: 500;
 }
 
-.nav-links a:hover {
+.nav-link:hover,
+.nav-link.is-active {
   color: var(--gold);
+}
+
+.nav-link.is-active {
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .content {
@@ -53,10 +61,14 @@ body {
   padding: 0 20px;
 }
 
-.admin-toolbar {
+.admin-toolbar,
+.ballot-toolbar {
   position: sticky;
-  top: 86px;
+  top: var(--sticky-offset);
   z-index: 30;
+  background: rgba(15, 16, 20, 0.9);
+  border: 1px solid rgba(197, 160, 54, 0.3);
+  backdrop-filter: blur(6px);
 }
 
 .admin-toolbar__row {
@@ -67,6 +79,10 @@ body {
   flex-wrap: wrap;
 }
 
+.admin-toolbar__row h1 {
+  margin-bottom: 0;
+}
+
 .admin-toolbar__actions {
   display: flex;
   align-items: center;
@@ -75,12 +91,6 @@ body {
 
 .admin-toolbar__actions form {
   margin: 0;
-}
-
-.ballot-toolbar {
-  position: sticky;
-  top: 86px;
-  z-index: 30;
 }
 
 .ballot-toolbar__row {
@@ -194,13 +204,17 @@ h1, h2 {
 }
 
 @media (max-width: 700px) {
+  :root {
+    --sticky-offset: 128px;
+  }
+
   .site-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
 
-  .nav-links a {
+  .nav-link {
     margin-left: 0;
     margin-right: 12px;
   }
