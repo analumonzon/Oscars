@@ -46,12 +46,22 @@ try:
 except BallotError as exc:
     raise RuntimeError(str(exc)) from exc
 
+print(
+    f"[startup] ballot_path={BALLOT_PATH} reset_on_start={RESET_BALLOT_ON_START} "
+    f"loaded_categories={len(file_ballot)}"
+)
+
 conn = get_conn()
 try:
     existing_ballot = load_ballot_from_db(conn)
-    if RESET_BALLOT_ON_START or not existing_ballot:
+    replaced_ballot = bool(RESET_BALLOT_ON_START or not existing_ballot)
+    if replaced_ballot:
         replace_ballot(conn, file_ballot)
     BALLOT = load_ballot_from_db(conn)
+    print(
+        f"[startup] existing_categories_before={len(existing_ballot)} "
+        f"replaced_ballot={replaced_ballot} db_categories_after={len(BALLOT)}"
+    )
 finally:
     conn.close()
 

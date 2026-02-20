@@ -10,13 +10,22 @@ if [[ ! -f .env.local ]]; then
   exit 1
 fi
 
-set -a
-source .env.local
-set +a
+while IFS= read -r line || [[ -n "$line" ]]; do
+  [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+  if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+    key="${BASH_REMATCH[1]}"
+    value="${BASH_REMATCH[2]}"
+    if [[ -z "${!key+x}" ]]; then
+      export "$key=$value"
+    fi
+  fi
+done < .env.local
 
 : "${HOST:=0.0.0.0}"
 : "${PORT:=8000}"
 : "${RELOAD:=true}"
+
+echo "Starting Oscars app: HOST=${HOST} PORT=${PORT} RELOAD=${RELOAD} OSCARS_RESET_BALLOT_ON_START=${OSCARS_RESET_BALLOT_ON_START:-false}"
 
 if [[ -x "$ROOT_DIR/.venv/bin/python" ]]; then
   UVICORN_CMD=("$ROOT_DIR/.venv/bin/python" -m uvicorn app.main:app --host "$HOST" --port "$PORT")

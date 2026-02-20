@@ -124,7 +124,7 @@ def clear_setting(conn: Connection, key: str) -> None:
 
 
 def replace_ballot(conn: Connection, ballot: list[dict[str, Any]]) -> None:
-    with conn.begin():
+    def _replace() -> None:
         conn.execute(delete(nominees))
         conn.execute(delete(categories))
         conn.execute(delete(winners))
@@ -149,6 +149,12 @@ def replace_ballot(conn: Connection, ballot: list[dict[str, Any]]) -> None:
                     for nominee in category["nominees"]
                 ],
             )
+
+    if conn.in_transaction():
+        _replace()
+    else:
+        with conn.begin():
+            _replace()
 
 
 def load_ballot_from_db(conn: Connection) -> list[dict[str, Any]]:
