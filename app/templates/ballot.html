@@ -8,7 +8,10 @@
       <h1>2026 Oscars Ballot</h1>
       {% if not locked %}
         <div class="ballot-toolbar__actions">
-          <button class="primary" type="submit" form="ballot-form">Submit ballot</button>
+          <button class="primary" id="submit-ballot-btn" type="submit" form="ballot-form">
+            <span class="btn-label">Submit ballot</span>
+            <span class="btn-spinner" aria-hidden="true"></span>
+          </button>
         </div>
       {% endif %}
     </div>
@@ -23,13 +26,31 @@
     {% if error %}
       <p class="error">{{ error }}</p>
     {% endif %}
+    <p id="ballot-client-error" class="error" style="display:none;"></p>
+    {% if duplicate_name and not edit_mode and not locked %}
+      <p>
+        A ballot already exists for <strong>{{ duplicate_name }}</strong>.
+        Do you want to modify that ballot?
+      </p>
+      <p><a class="primary" href="{{ edit_url }}">Modify existing ballot</a></p>
+    {% endif %}
+    {% if edit_mode and not locked %}
+      <p class="notice">Editing existing ballot for {{ edit_name }}. Saving will replace previous picks.</p>
+    {% endif %}
   </section>
 
   {% if not locked %}
-    <form class="ballot-form" method="post" action="/submit" id="ballot-form">
+    <form class="ballot-form" method="post" action="/submit" id="ballot-form" data-edit-mode="{{ 1 if edit_mode else 0 }}" data-loaded-name="{{ edit_name or '' }}">
+      {% if edit_mode %}
+        <input type="hidden" name="overwrite" value="1">
+      {% endif %}
       <section class="card">
         <label class="field-label" for="guest_name">Your name</label>
-        <input id="guest_name" name="guest_name" class="text-input" required>
+        <input id="guest_name" name="guest_name" class="text-input" value="{{ default_guest_name }}" required>
+        <p id="name-duplicate-hint" class="error" style="display:none; margin-top:10px;"></p>
+        <p id="name-duplicate-action" style="display:none; margin-top:8px;">
+          <a id="name-duplicate-link" class="primary" href="#">Modify existing ballot</a>
+        </p>
       </section>
 
       {% for category in ballot %}
@@ -39,7 +60,13 @@
           <div class="choices">
             {% for nominee in category.nominees %}
               <label class="choice">
-                <input type="radio" name="category_{{ category.key }}" value="{{ nominee }}" required>
+                <input
+                  type="radio"
+                  name="category_{{ category.key }}"
+                  value="{{ nominee }}"
+                  {% if existing_selections.get(category.key) == nominee %}checked{% endif %}
+                  required
+                >
                 <span>{{ nominee }}</span>
               </label>
             {% endfor %}
@@ -48,5 +75,214 @@
       {% endfor %}
 
     </form>
+
+    <script>
+      (function () {
+        const guestInput = document.getElementById("guest_name");
+        const form = document.getElementById("ballot-form");
+        const submitButton = document.getElementById("submit-ballot-btn");
+        const clientError = document.getElementById("ballot-client-error");
+        const hint = document.getElementById("name-duplicate-hint");
+        const action = document.getElementById("name-duplicate-action");
+        const link = document.getElementById("name-duplicate-link");
+        const editMode = guestInput.form && guestInput.form.dataset.editMode === "1";
+        let loadedName = (form.dataset.loadedName || "").trim().toLowerCase();
+
+        if (!guestInput || !form || !hint || !action || !link) {
+          return;
+        }
+
+        let requestSeq = 0;
+        let isSubmitting = false;
+
+        function showClientError(message) {
+          if (!clientError) {
+            return;
+          }
+          clientError.textContent = message;
+          clientError.style.display = "block";
+          clientError.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        function clearClientError() {
+          if (!clientError) {
+            return;
+          }
+          clientError.textContent = "";
+          clientError.style.display = "none";
+        }
+
+        function setSavingState() {
+          if (!submitButton) {
+            return;
+          }
+          submitButton.disabled = true;
+          submitButton.classList.add("is-loading");
+          submitButton.setAttribute("aria-busy", "true");
+        }
+
+        function maybeClearAnswersForNewName() {
+          if (!loadedName) {
+            return;
+          }
+          const currentName = (guestInput.value || "").trim().toLowerCase();
+          if (!currentName || currentName === loadedName) {
+            return;
+          }
+          form.querySelectorAll('input[type="radio"][name^="category_"]:checked').forEach((input) => {
+            input.checked = false;
+          });
+          const overwriteInput = form.querySelector('input[name="overwrite"]');
+          if (overwriteInput) {
+            overwriteInput.remove();
+          }
+          loadedName = "";
+          form.dataset.loadedName = "";
+          showClientError("Name changed. Previous answers were cleared. Please answer all questions for the new name.");
+        }
+
+        function clearDuplicateHint() {
+          hint.style.display = "none";
+          hint.textContent = "";
+          action.style.display = "none";
+          link.href = "#";
+        }
+
+        async function checkDuplicateName() {
+          const rawName = guestInput.value.trim();
+          if (!rawName) {
+            clearDuplicateHint();
+            return;
+          }
+
+          const currentSeq = ++requestSeq;
+          try {
+            const res = await fetch(`/api/guest-check?name=${encodeURIComponent(rawName)}`);
+            if (!res.ok || currentSeq !== requestSeq) {
+              return;
+            }
+
+            const data = await res.json();
+            if (data.exists) {
+              hint.textContent = `A ballot already exists for ${data.name}.`;
+              hint.style.display = "block";
+              if (data.edit_url) {
+                link.href = data.edit_url;
+                action.style.display = "block";
+              }
+              return;
+            }
+            clearDuplicateHint();
+          } catch (err) {
+            clearDuplicateHint();
+          }
+        }
+
+        guestInput.addEventListener("blur", checkDuplicateName);
+        guestInput.addEventListener("change", maybeClearAnswersForNewName);
+
+        form.addEventListener("change", function (event) {
+          if (event.target !== guestInput) {
+            clearClientError();
+          }
+        });
+
+        form.addEventListener("submit", function (event) {
+          if (isSubmitting) {
+            event.preventDefault();
+            return;
+          }
+
+          clearClientError();
+
+          const categoryInputs = Array.from(
+            form.querySelectorAll('input[type="radio"][name^="category_"]')
+          );
+          const categoryNames = [...new Set(categoryInputs.map((input) => input.name))];
+          const missingCount = categoryNames.filter((name) => {
+            return !form.querySelector(`input[name="${CSS.escape(name)}"]:checked`);
+          }).length;
+
+          if (missingCount > 0) {
+            event.preventDefault();
+            const label = missingCount === 1 ? "category is" : "categories are";
+            showClientError(`Please answer all questions before submitting. ${missingCount} ${label} still missing.`);
+            return;
+          }
+
+          isSubmitting = true;
+          setSavingState();
+        });
+
+        if (!editMode) {
+          guestInput.addEventListener("input", clearDuplicateHint);
+        }
+      })();
+    </script>
+  {% else %}
+    <section class="card">
+      <h2>View your saved ballot</h2>
+      <form method="get" action="/" class="ballot-form" id="locked-lookup-form">
+        <div>
+          <label class="field-label" for="view_name">Your name</label>
+          <input id="view_name" name="view_name" class="text-input" value="{{ readonly_name }}" required>
+        </div>
+        <div>
+          <button class="primary" type="submit">Show my answers</button>
+        </div>
+      </form>
+      {% if readonly_lookup_done and readonly_lookup_error %}
+        <p class="error">{{ readonly_lookup_error }}</p>
+      {% elif readonly_lookup_done %}
+        <p class="notice">Showing saved answers for {{ readonly_name }}.</p>
+      {% endif %}
+    </section>
+
+    <script>
+      (function () {
+        const form = document.getElementById("locked-lookup-form");
+        const input = document.getElementById("view_name");
+        if (!form || !input) {
+          return;
+        }
+
+        let submitTimer = null;
+
+        function scheduleRefresh() {
+          const nextName = input.value.trim();
+          const currentName = "{{ readonly_name|e }}";
+          if (!nextName || nextName === currentName) {
+            return;
+          }
+
+          if (submitTimer) {
+            clearTimeout(submitTimer);
+          }
+          submitTimer = setTimeout(function () {
+            form.requestSubmit();
+          }, 300);
+        }
+
+        input.addEventListener("change", scheduleRefresh);
+        input.addEventListener("blur", scheduleRefresh);
+      })();
+    </script>
+
+    <section class="ballot-form">
+      {% for category in ballot %}
+        <section class="card">
+          <h2>{{ category.name }}</h2>
+          <p class="points">Worth {{ category.points }} points</p>
+          <div class="choices">
+            {% for nominee in category.nominees %}
+              <label class="choice is-readonly">
+                <input type="radio" disabled {% if existing_selections.get(category.key) == nominee %}checked{% endif %}>
+                <span>{{ nominee }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    </section>
   {% endif %}
 {% endblock %}

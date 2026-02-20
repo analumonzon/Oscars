@@ -119,6 +119,10 @@ def set_setting(conn: Connection, key: str, value: str) -> None:
     )
 
 
+def clear_setting(conn: Connection, key: str) -> None:
+    conn.execute(delete(settings).where(settings.c.key == key))
+
+
 def replace_ballot(conn: Connection, ballot: list[dict[str, Any]]) -> None:
     with conn.begin():
         conn.execute(delete(nominees))

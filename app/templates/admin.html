@@ -16,6 +16,10 @@
           <form method="post" action="/admin/lock">
             <button class="primary" type="submit">Lock ballots</button>
           </form>
+        {% else %}
+          <form method="post" action="/admin/unlock">
+            <button class="primary" type="submit">Unlock ballots</button>
+          </form>
         {% endif %}
         <button class="primary" type="submit" form="winners-form">Save winners</button>
       </div>
