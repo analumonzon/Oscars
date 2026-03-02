@@ -135,6 +135,12 @@ h1, h2 {
   font-weight: 600;
 }
 
+.card.is-missing {
+  outline: 2px solid #c0392b;
+  outline-offset: -2px;
+  box-shadow: 0 0 0 4px rgba(192, 57, 43, 0.25), 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
 .ballot-form {
   display: grid;
   gap: 16px;
