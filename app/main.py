@@ -340,7 +340,8 @@ async def lock_ballots(request: Request) -> RedirectResponse:
     finally:
         conn.close()
 
-    return RedirectResponse(url="/admin", status_code=303)
+    key = request.query_params.get("key", "")
+    return RedirectResponse(url=f"/admin?key={quote(key)}" if key else "/admin", status_code=303)
 
 
 @app.post("/admin/unlock")
@@ -353,7 +354,8 @@ async def unlock_ballots(request: Request) -> RedirectResponse:
     finally:
         conn.close()
 
-    return RedirectResponse(url="/admin", status_code=303)
+    key = request.query_params.get("key", "")
+    return RedirectResponse(url=f"/admin?key={quote(key)}" if key else "/admin", status_code=303)
 
 
 @app.post("/admin/winners")
@@ -382,4 +384,5 @@ async def set_winners(request: Request) -> RedirectResponse:
     finally:
         conn.close()
 
-    return RedirectResponse(url="/admin", status_code=303)
+    key = request.query_params.get("key", "")
+    return RedirectResponse(url=f"/admin?key={quote(key)}" if key else "/admin", status_code=303)
