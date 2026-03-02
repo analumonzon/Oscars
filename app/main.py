@@ -66,11 +66,16 @@ finally:
     conn.close()
 
 
-def _require_admin(request: Request) -> None:
+def _admin_key_valid(request: Request) -> bool:
+    """Return True when no key is configured or the request carries the right key."""
     if not ADMIN_KEY:
-        return
+        return True
     key = request.query_params.get("key") or request.headers.get("X-Admin-Key")
-    if key != ADMIN_KEY:
+    return key == ADMIN_KEY
+
+
+def _require_admin(request: Request) -> None:
+    if not _admin_key_valid(request):
         raise HTTPException(status_code=403, detail="Admin key required")
 
 
@@ -314,13 +319,28 @@ async def healthz():
 
 
 @app.get("/admin", response_class=HTMLResponse)
-async def admin(request: Request) -> HTMLResponse:
-    _require_admin(request)
+async def admin(request: Request, error: str | None = None) -> HTMLResponse:
+    authed = _admin_key_valid(request)
+    if not authed:
+        return templates.TemplateResponse(
+            "admin.html",
+            {
+                "request": request,
+                "needs_login": True,
+                "login_error": error,
+                "ballot": [],
+                "winners": {},
+                "locked": False,
+                "leaders": [],
+            },
+        )
     winners = _load_winners()
     return templates.TemplateResponse(
         "admin.html",
         {
             "request": request,
+            "needs_login": False,
+            "login_error": None,
             "ballot": BALLOT,
             "winners": winners,
             "locked": _ballots_locked(),

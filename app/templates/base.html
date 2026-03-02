@@ -18,5 +18,29 @@
   <main class="content">
     {% block content %}{% endblock %}
   </main>
+  <script>
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var key = params.get('key');
+      if (key) {
+        sessionStorage.setItem('adminKey', key);
+      } else {
+        key = sessionStorage.getItem('adminKey');
+      }
+      if (!key) return;
+
+      // Fix nav links to /admin
+      document.querySelectorAll('a[href="/admin"]').forEach(function(a) {
+        a.href = '/admin?key=' + encodeURIComponent(key);
+      });
+
+      // Fix form actions that post to /admin/*
+      document.querySelectorAll('form[action^="/admin"]').forEach(function(f) {
+        var url = new URL(f.action, window.location.origin);
+        url.searchParams.set('key', key);
+        f.action = url.pathname + url.search;
+      });
+    })();
+  </script>
 </body>
 </html>

@@ -3,6 +3,18 @@
 {% block nav_admin_active %}is-active{% endblock %}
 
 {% block content %}
+  {% if needs_login %}
+  <section class="card">
+    <h1>Admin Login</h1>
+    {% if login_error %}
+      <p class="notice" style="color:#c0392b;">{{ login_error }}</p>
+    {% endif %}
+    <form method="get" action="/admin" style="display:flex;gap:.5rem;align-items:center;margin-top:.75rem;">
+      <input type="password" name="key" placeholder="Enter admin key" class="select-input" style="flex:1;" required>
+      <button type="submit" class="primary">Enter</button>
+    </form>
+  </section>
+  {% else %}
   <section class="card admin-toolbar">
     <div class="admin-toolbar__row">
       <div>
@@ -13,11 +25,11 @@
       </div>
       <div class="admin-toolbar__actions">
         {% if not locked %}
-          <form method="post" action="/admin/lock?key={{ request.query_params.get('key', '') }}">
+          <form method="post" action="/admin/lock">
             <button class="primary" type="submit">Lock ballots</button>
           </form>
         {% else %}
-          <form method="post" action="/admin/unlock?key={{ request.query_params.get('key', '') }}">
+          <form method="post" action="/admin/unlock">
             <button class="primary" type="submit">Unlock ballots</button>
           </form>
         {% endif %}
@@ -26,7 +38,7 @@
     </div>
   </section>
 
-  <form method="post" action="/admin/winners?key={{ request.query_params.get('key', '') }}" class="ballot-form" id="winners-form">
+  <form method="post" action="/admin/winners" class="ballot-form" id="winners-form">
     {% for category in ballot %}
       <section class="card">
         <h2>{{ category.name }}</h2>
@@ -65,4 +77,5 @@
       <p>No ballots submitted yet.</p>
     {% endif %}
   </section>
+  {% endif %}
 {% endblock %}
