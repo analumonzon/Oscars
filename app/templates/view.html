@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block nav_view_active %}is-active{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <h1>My Ballot</h1>
+    <p>Enter your name to retrieve your saved picks and current score.</p>
+    <form method="get" action="/view" style="display:flex; gap:12px; align-items:flex-end; margin-top:16px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:180px;">
+        <label class="field-label" for="lookup_name">Your name</label>
+        <input id="lookup_name" name="name" class="text-input" value="{{ lookup_name }}" required>
+      </div>
+      <div>
+        <button class="primary" type="submit">Retrieve my ballot</button>
+      </div>
+    </form>
+    {% if lookup_done and lookup_error %}
+      <p class="error" style="margin-top:12px;">{{ lookup_error }}</p>
+    {% elif lookup_done %}
+      <p class="notice" style="margin-top:12px;">
+        Showing ballot for <strong>{{ lookup_name }}</strong> &mdash;
+        Current score: <strong>{{ score }} point{{ 's' if score != 1 else '' }}</strong>
+      </p>
+    {% endif %}
+  </section>
+
+  {% if lookup_done and not lookup_error %}
+    <section class="ballot-form">
+      {% for category in ballot %}
+        {% set winner_nominee = winners.get(category.key, {}).get('nominee') %}
+        {% set my_pick = my_selections.get(category.key) %}
+        <section class="card">
+          <h2>{{ category.name }}</h2>
+          <p class="points">
+            Worth {{ category.points }} points
+            {% if winner_nominee %}&mdash; Winner: <strong>{{ winner_nominee }}</strong>{% endif %}
+          </p>
+          <div class="choices">
+            {% for nominee in category.nominees %}
+              {% set is_winner = nominee == winner_nominee %}
+              {% set is_my_pick = nominee == my_pick %}
+              <label class="choice is-readonly{% if is_my_pick and is_winner %} is-correct{% elif is_my_pick and winner_nominee %} is-incorrect{% endif %}">
+                <input
+                  type="radio"
+                  disabled
+                  {% if is_my_pick %}checked{% endif %}
+                >
+                <span>
+                  {{ nominee }}{% if is_my_pick and is_winner %} <span class="correct-mark">&#10003;</span>{% elif is_winner %} &#10003;{% elif is_my_pick %} &larr; your pick{% endif %}
+                </span>
+              </label>
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    </section>
+  {% endif %}
+{% endblock %}

@@ -22,10 +22,13 @@
       <p>Pick one winner per category. Points are shown per category.</p>
     {% elif not all_decided and not edit_mode %}
       <p class="notice">Ballots are locked, but you can still enter a new ballot for the remaining open categories.</p>
+      <p style="margin-top:10px;">Already submitted a ballot? <a href="/view">View your picks and current score &rarr;</a></p>
     {% elif all_decided %}
       <p class="notice">Voting is over &mdash; all categories have been decided. Thanks for playing!</p>
+      <p style="margin-top:10px;"><a href="/view">View your picks and current score &rarr;</a></p>
     {% else %}
       <p class="notice">Ballots are locked. Thanks for playing.</p>
+      <p style="margin-top:10px;"><a href="/view">View your picks and current score &rarr;</a></p>
     {% endif %}
     {% if error %}
       <p class="error">{{ error }}</p>
@@ -229,6 +232,9 @@
         <label class="field-label" for="guest_name">Your name</label>
         <input id="guest_name" name="guest_name" class="text-input" value="" required>
         <p id="name-duplicate-hint" class="error" style="display:none; margin-top:10px;"></p>
+        <p id="name-duplicate-view-action" style="display:none; margin-top:8px;">
+          <a href="/view" class="primary">View my saved ballot</a>
+        </p>
       </section>
 
       {% for category in ballot %}
@@ -281,6 +287,7 @@
         const submitButton = document.getElementById("submit-ballot-btn");
         const clientError = document.getElementById("ballot-client-error");
         const hint = document.getElementById("name-duplicate-hint");
+        const viewAction = document.getElementById("name-duplicate-view-action");
 
         if (!guestInput || !form) {
           return;
@@ -335,6 +342,7 @@
             if (data.exists && hint) {
               hint.textContent = `A ballot already exists for ${data.name}. Existing ballots cannot be modified while ballots are locked.`;
               hint.style.display = "block";
+              if (viewAction) viewAction.style.display = "block";
             }
           } catch (err) {
             // ignore
@@ -347,6 +355,7 @@
             hint.style.display = "none";
             hint.textContent = "";
           }
+          if (viewAction) viewAction.style.display = "none";
         });
 
         form.addEventListener("change", function (event) {
@@ -382,70 +391,5 @@
         });
       })();
     </script>
-  {% else %}
-    <section class="card">
-      <h2>View your saved ballot</h2>
-      <form method="get" action="/" class="ballot-form" id="locked-lookup-form">
-        <div>
-          <label class="field-label" for="view_name">Your name</label>
-          <input id="view_name" name="view_name" class="text-input" value="{{ readonly_name }}" required>
-        </div>
-        <div>
-          <button class="primary" type="submit">Show my answers</button>
-        </div>
-      </form>
-      {% if readonly_lookup_done and readonly_lookup_error %}
-        <p class="error">{{ readonly_lookup_error }}</p>
-      {% elif readonly_lookup_done %}
-        <p class="notice">Showing saved answers for {{ readonly_name }}.</p>
-      {% endif %}
-    </section>
-
-    <script>
-      (function () {
-        const form = document.getElementById("locked-lookup-form");
-        const input = document.getElementById("view_name");
-        if (!form || !input) {
-          return;
-        }
-
-        let submitTimer = null;
-
-        function scheduleRefresh() {
-          const nextName = input.value.trim();
-          const currentName = "{{ readonly_name|e }}";
-          if (!nextName || nextName === currentName) {
-            return;
-          }
-
-          if (submitTimer) {
-            clearTimeout(submitTimer);
-          }
-          submitTimer = setTimeout(function () {
-            form.requestSubmit();
-          }, 300);
-        }
-
-        input.addEventListener("change", scheduleRefresh);
-        input.addEventListener("blur", scheduleRefresh);
-      })();
-    </script>
-
-    <section class="ballot-form">
-      {% for category in ballot %}
-        <section class="card">
-          <h2>{{ category.name }}</h2>
-          <p class="points">Worth {{ category.points }} points</p>
-          <div class="choices">
-            {% for nominee in category.nominees %}
-              <label class="choice is-readonly">
-                <input type="radio" disabled {% if existing_selections.get(category.key) == nominee %}checked{% endif %}>
-                <span>{{ nominee }}</span>
-              </label>
-            {% endfor %}
-          </div>
-        </section>
-      {% endfor %}
-    </section>
   {% endif %}
 {% endblock %}

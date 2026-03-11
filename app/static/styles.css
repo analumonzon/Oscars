@@ -191,8 +191,51 @@ h1, h2 {
   pointer-events: none;
 }
 
+.choice.is-readonly input[type="radio"]:disabled {
+  opacity: 1;
+  accent-color: #6e6657;
+}
+
 .card.is-decided {
   opacity: 0.55;
+}
+
+.choice.is-correct {
+  border-color: #27ae60;
+  background: #f0faf4;
+}
+
+.choice.is-correct input[type="radio"],
+.choice.is-incorrect input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  border-radius: 50%;
+  border: 2px solid #ccc;
+}
+
+.choice.is-correct input[type="radio"]:checked {
+  border-color: #27ae60;
+  background-color: #27ae60;
+  box-shadow: inset 0 0 0 3px white;
+}
+
+.choice.is-incorrect {
+  border-color: #c0392b;
+  background: #fdf0f0;
+}
+
+.choice.is-incorrect input[type="radio"]:checked {
+  border-color: #c0392b;
+  background-color: #c0392b;
+  box-shadow: inset 0 0 0 3px white;
+}
+
+.correct-mark {
+  color: #27ae60;
+  font-weight: 700;
 }
 
 .primary {

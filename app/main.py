@@ -98,6 +98,29 @@ def _load_winners() -> dict[str, dict[str, Any]]:
         conn.close()
 
 
+def _guest_score(name: str) -> int | None:
+    conn = get_conn()
+    try:
+        guest = _find_guest_row(conn, name)
+        if not guest:
+            return None
+        row = conn.execute(
+            text(
+                """
+            SELECT COALESCE(SUM(CASE WHEN s.nominee = w.nominee THEN w.points ELSE 0 END), 0) AS score
+            FROM ballots b
+            JOIN selections s ON s.ballot_id = b.id
+            LEFT JOIN winners w ON w.category_key = s.category_key
+            WHERE b.guest_id = :guest_id
+            """
+            ),
+            {"guest_id": guest.id},
+        ).first()
+        return int(row.score) if row else 0
+    finally:
+        conn.close()
+
+
 def _leaderboard() -> list[dict[str, Any]]:
     conn = get_conn()
     try:
@@ -186,31 +209,15 @@ async def ballot_form(
     error: str | None = None,
     duplicate_name: str | None = None,
     edit_name: str | None = None,
-    view_name: str | None = None,
 ) -> HTMLResponse:
     locked = _ballots_locked()
     current_winners = _load_winners() if locked else {}
     all_decided = locked and len(BALLOT) > 0 and len(current_winners) >= len(BALLOT)
     edit_mode = bool(edit_name)
     existing_selections: dict[str, str] = {}
-    readonly_name = ""
-    readonly_lookup_done = False
-    readonly_lookup_error: str | None = None
 
     if edit_mode and edit_name:
         existing_selections = _load_guest_ballot(edit_name) or {}
-    elif locked and view_name:
-        readonly_name = " ".join(view_name.split()).strip()
-        if readonly_name:
-            readonly_lookup_done = True
-            loaded = _load_guest_ballot(readonly_name)
-            if loaded is None:
-                readonly_lookup_error = "No ballot found for that name."
-            else:
-                existing_selections = loaded
-        else:
-            readonly_lookup_done = True
-            readonly_lookup_error = "Please enter a name to view saved answers."
 
     return templates.TemplateResponse(
         "ballot.html",
@@ -225,9 +232,6 @@ async def ballot_form(
             "default_guest_name": edit_name or "",
             "existing_selections": existing_selections,
             "edit_url": f"/?edit_name={quote(duplicate_name)}" if duplicate_name else None,
-            "readonly_name": readonly_name,
-            "readonly_lookup_done": readonly_lookup_done,
-            "readonly_lookup_error": readonly_lookup_error,
             "winners": current_winners,
             "all_decided": all_decided,
         },
@@ -350,6 +354,41 @@ async def submit_ballot(
         conn.close()
 
     return RedirectResponse(url="/leaderboard", status_code=303)
+
+
+@app.get("/view", response_class=HTMLResponse)
+async def view_ballot(
+    request: Request,
+    name: str | None = None,
+) -> HTMLResponse:
+    lookup_name = " ".join(name.split()).strip() if name else ""
+    lookup_done = bool(lookup_name)
+    lookup_error: str | None = None
+    my_selections: dict[str, str] = {}
+    score: int | None = None
+
+    if lookup_done:
+        loaded = _load_guest_ballot(lookup_name)
+        if loaded is None:
+            lookup_error = "No ballot found for that name."
+        else:
+            my_selections = loaded
+            score = _guest_score(lookup_name)
+
+    current_winners = _load_winners()
+    return templates.TemplateResponse(
+        "view.html",
+        {
+            "request": request,
+            "ballot": BALLOT,
+            "lookup_name": lookup_name,
+            "lookup_done": lookup_done,
+            "lookup_error": lookup_error,
+            "my_selections": my_selections,
+            "score": score,
+            "winners": current_winners,
+        },
+    )
 
 
 @app.get("/leaderboard", response_class=HTMLResponse)
