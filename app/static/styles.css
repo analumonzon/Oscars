@@ -191,6 +191,10 @@ h1, h2 {
   pointer-events: none;
 }
 
+.card.is-decided {
+  opacity: 0.55;
+}
+
 .primary {
   background: var(--gold);
   color: #111;

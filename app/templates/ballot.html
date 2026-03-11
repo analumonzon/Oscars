@@ -6,7 +6,7 @@
   <section class="card ballot-toolbar">
     <div class="ballot-toolbar__row">
       <h1>2026 Oscars Ballot</h1>
-      {% if not locked %}
+      {% if not locked or (locked and not all_decided and not edit_mode) %}
         <div class="ballot-toolbar__actions">
           <button class="primary" id="submit-ballot-btn" type="submit" form="ballot-form">
             <span class="btn-label">Submit ballot</span>
@@ -18,10 +18,14 @@
   </section>
 
   <section class="card">
-    {% if locked %}
-      <p class="notice">Ballots are locked. Thanks for playing.</p>
-    {% else %}
+    {% if not locked %}
       <p>Pick one winner per category. Points are shown per category.</p>
+    {% elif not all_decided and not edit_mode %}
+      <p class="notice">Ballots are locked, but you can still enter a new ballot for the remaining open categories.</p>
+    {% elif all_decided %}
+      <p class="notice">Voting is over &mdash; all categories have been decided. Thanks for playing!</p>
+    {% else %}
+      <p class="notice">Ballots are locked. Thanks for playing.</p>
     {% endif %}
     {% if error %}
       <p class="error">{{ error }}</p>
@@ -217,6 +221,165 @@
         if (!editMode) {
           guestInput.addEventListener("input", clearDuplicateHint);
         }
+      })();
+    </script>
+  {% elif not all_decided and not edit_mode %}
+    <form class="ballot-form" method="post" action="/submit" id="ballot-form">
+      <section class="card">
+        <label class="field-label" for="guest_name">Your name</label>
+        <input id="guest_name" name="guest_name" class="text-input" value="" required>
+        <p id="name-duplicate-hint" class="error" style="display:none; margin-top:10px;"></p>
+      </section>
+
+      {% for category in ballot %}
+        {% set winner_nominee = winners.get(category.key, {}).get('nominee') %}
+        {% if winner_nominee %}
+          <section class="card is-decided">
+            <h2>{{ category.name }}</h2>
+            <p class="points">Worth {{ category.points }} points &mdash; Winner already declared</p>
+            <div class="choices">
+              {% for nominee in category.nominees %}
+                <label class="choice is-readonly">
+                  <input
+                    type="radio"
+                    name="category_{{ category.key }}"
+                    value="{{ nominee }}"
+                    {% if nominee == winner_nominee %}checked{% endif %}
+                    disabled
+                  >
+                  <span>{{ nominee }}{% if nominee == winner_nominee %} &#10003;{% endif %}</span>
+                </label>
+              {% endfor %}
+            </div>
+          </section>
+        {% else %}
+          <section class="card">
+            <h2>{{ category.name }}</h2>
+            <p class="points">Worth {{ category.points }} points</p>
+            <div class="choices">
+              {% for nominee in category.nominees %}
+                <label class="choice">
+                  <input
+                    type="radio"
+                    name="category_{{ category.key }}"
+                    value="{{ nominee }}"
+                    required
+                  >
+                  <span>{{ nominee }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          </section>
+        {% endif %}
+      {% endfor %}
+    </form>
+
+    <script>
+      (function () {
+        const guestInput = document.getElementById("guest_name");
+        const form = document.getElementById("ballot-form");
+        const submitButton = document.getElementById("submit-ballot-btn");
+        const clientError = document.getElementById("ballot-client-error");
+        const hint = document.getElementById("name-duplicate-hint");
+
+        if (!guestInput || !form) {
+          return;
+        }
+
+        let requestSeq = 0;
+        let isSubmitting = false;
+
+        function showClientError(message) {
+          if (!clientError) {
+            return;
+          }
+          clientError.textContent = message;
+          clientError.style.display = "block";
+          clientError.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        function clearClientError() {
+          if (!clientError) {
+            return;
+          }
+          clientError.textContent = "";
+          clientError.style.display = "none";
+        }
+
+        function setSavingState() {
+          if (!submitButton) {
+            return;
+          }
+          submitButton.disabled = true;
+          submitButton.classList.add("is-loading");
+          submitButton.setAttribute("aria-busy", "true");
+        }
+
+        async function checkDuplicateName() {
+          const rawName = guestInput.value.trim();
+          if (hint) {
+            hint.style.display = "none";
+            hint.textContent = "";
+          }
+          if (!rawName) {
+            return;
+          }
+
+          const currentSeq = ++requestSeq;
+          try {
+            const res = await fetch(`/api/guest-check?name=${encodeURIComponent(rawName)}`);
+            if (!res.ok || currentSeq !== requestSeq) {
+              return;
+            }
+            const data = await res.json();
+            if (data.exists && hint) {
+              hint.textContent = `A ballot already exists for ${data.name}. Existing ballots cannot be modified while ballots are locked.`;
+              hint.style.display = "block";
+            }
+          } catch (err) {
+            // ignore
+          }
+        }
+
+        guestInput.addEventListener("blur", checkDuplicateName);
+        guestInput.addEventListener("input", function () {
+          if (hint) {
+            hint.style.display = "none";
+            hint.textContent = "";
+          }
+        });
+
+        form.addEventListener("change", function (event) {
+          if (event.target !== guestInput) {
+            clearClientError();
+          }
+        });
+
+        form.addEventListener("submit", function (event) {
+          if (isSubmitting) {
+            event.preventDefault();
+            return;
+          }
+          clearClientError();
+
+          const categoryInputs = Array.from(
+            form.querySelectorAll('input[type="radio"][name^="category_"]:not([disabled])')
+          );
+          const categoryNames = [...new Set(categoryInputs.map((input) => input.name))];
+          const missingCount = categoryNames.filter((name) => {
+            return !form.querySelector(`input[name="${CSS.escape(name)}"]:checked`);
+          }).length;
+
+          if (missingCount > 0) {
+            event.preventDefault();
+            const label = missingCount === 1 ? "category is" : "categories are";
+            showClientError(`Please answer all open questions before submitting. ${missingCount} ${label} still missing.`);
+            return;
+          }
+
+          isSubmitting = true;
+          setSavingState();
+        });
       })();
     </script>
   {% else %}

@@ -189,6 +189,8 @@ async def ballot_form(
     view_name: str | None = None,
 ) -> HTMLResponse:
     locked = _ballots_locked()
+    current_winners = _load_winners() if locked else {}
+    all_decided = locked and len(BALLOT) > 0 and len(current_winners) >= len(BALLOT)
     edit_mode = bool(edit_name)
     existing_selections: dict[str, str] = {}
     readonly_name = ""
@@ -226,6 +228,8 @@ async def ballot_form(
             "readonly_name": readonly_name,
             "readonly_lookup_done": readonly_lookup_done,
             "readonly_lookup_error": readonly_lookup_error,
+            "winners": current_winners,
+            "all_decided": all_decided,
         },
     )
 
@@ -236,13 +240,66 @@ async def submit_ballot(
     guest_name: str = Form(...),
     overwrite: str | None = Form(default=None),
 ) -> RedirectResponse:
-    if _ballots_locked():
-        return RedirectResponse(url="/?error=Ballot%20is%20locked", status_code=303)
-
     name = " ".join(guest_name.split()).strip()
-    overwrite_existing = (overwrite or "").lower() in {"1", "true", "yes", "on"}
     if not name:
         return RedirectResponse(url="/?error=Name%20is%20required", status_code=303)
+
+    if _ballots_locked():
+        conn = get_conn()
+        try:
+            existing = _find_guest_row(conn, name)
+        finally:
+            conn.close()
+
+        if existing:
+            return RedirectResponse(
+                url="/?error=Ballots%20are%20locked.%20Existing%20ballots%20cannot%20be%20modified.",
+                status_code=303,
+            )
+
+        current_winners = _load_winners()
+        open_categories = [c for c in BALLOT if c["key"] not in current_winners]
+
+        if not open_categories:
+            return RedirectResponse(
+                url="/?error=All%20categories%20have%20been%20decided.%20Voting%20is%20over.",
+                status_code=303,
+            )
+
+        form = await request.form()
+        picks: dict[str, str] = {}
+        for category in open_categories:
+            field_name = f"category_{category['key']}"
+            nominee = form.get(field_name)
+            if not nominee:
+                return RedirectResponse(
+                    url=f"/?error=Missing%20selection%20for%20{quote(category['name'])}",
+                    status_code=303,
+                )
+            picks[category["key"]] = nominee
+
+        conn = get_conn()
+        try:
+            with conn.begin():
+                guest_id = conn.execute(
+                    insert(guests).values(name=name, created_at=utc_now())
+                ).inserted_primary_key[0]
+                ballot_id = conn.execute(
+                    insert(ballots).values(guest_id=guest_id, created_at=utc_now())
+                ).inserted_primary_key[0]
+                conn.execute(
+                    insert(selections),
+                    [
+                        {"ballot_id": ballot_id, "category_key": key, "nominee": nominee}
+                        for key, nominee in picks.items()
+                    ],
+                )
+        finally:
+            conn.close()
+
+        return RedirectResponse(url="/leaderboard", status_code=303)
+
+    overwrite_existing = (overwrite or "").lower() in {"1", "true", "yes", "on"}
 
     form = await request.form()
     picks: dict[str, str] = {}
