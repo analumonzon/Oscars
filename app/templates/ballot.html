@@ -8,11 +8,15 @@
       <h1>2026 Oscars Ballot</h1>
       {% if not locked or (locked and not all_decided and not edit_mode) %}
         <div class="ballot-toolbar__actions">
+          <span>v 1.7</span>
           <button class="primary" id="submit-ballot-btn" type="submit" form="ballot-form">
             <span class="btn-label">Submit ballot</span>
             <span class="btn-spinner" aria-hidden="true"></span>
           </button>
+          
         </div>
+        <div id="ballot-toolbar-error" class="error ballot-toolbar__error" style="display:none;" aria-live="polite"></div>
+          
       {% endif %}
     </div>
   </section>
@@ -47,7 +51,7 @@
   </section>
 
   {% if not locked %}
-    <form class="ballot-form" method="post" action="/submit" id="ballot-form" data-edit-mode="{{ 1 if edit_mode else 0 }}" data-loaded-name="{{ edit_name or '' }}">
+    <form class="ballot-form" method="post" action="/submit" id="ballot-form" novalidate data-edit-mode="{{ 1 if edit_mode else 0 }}" data-loaded-name="{{ edit_name or '' }}">
       {% if edit_mode %}
         <input type="hidden" name="overwrite" value="1">
       {% endif %}
@@ -89,6 +93,7 @@
         const form = document.getElementById("ballot-form");
         const submitButton = document.getElementById("submit-ballot-btn");
         const clientError = document.getElementById("ballot-client-error");
+        const toolbarError = document.getElementById("ballot-toolbar-error");
         const hint = document.getElementById("name-duplicate-hint");
         const action = document.getElementById("name-duplicate-action");
         const link = document.getElementById("name-duplicate-link");
@@ -119,6 +124,22 @@
           clientError.style.display = "none";
         }
 
+        function showToolbarError(message) {
+          if (!toolbarError) {
+            return;
+          }
+          toolbarError.textContent = message;
+          toolbarError.style.display = "inline";
+        }
+
+        function clearToolbarError() {
+          if (!toolbarError) {
+            return;
+          }
+          toolbarError.textContent = "";
+          toolbarError.style.display = "none";
+        }
+
         function setSavingState() {
           if (!submitButton) {
             return;
@@ -145,7 +166,7 @@
           }
           loadedName = "";
           form.dataset.loadedName = "";
-          showClientError("Name changed. Previous answers were cleared. Please answer all questions for the new name.");
+          showClientError("Name changed. Previous selections were cleared. Please make new selections for the new name.");
         }
 
         function clearDuplicateHint() {
@@ -191,6 +212,11 @@
         form.addEventListener("change", function (event) {
           if (event.target !== guestInput) {
             clearClientError();
+            const card = event.target.closest(".card");
+            if (card) card.classList.remove("is-missing");
+            if (!form.querySelector(".card.is-missing")) {
+              clearToolbarError();
+            }
           }
         });
 
@@ -201,19 +227,36 @@
           }
 
           clearClientError();
+          clearToolbarError();
+          form.querySelectorAll(".card.is-missing").forEach((card) => card.classList.remove("is-missing"));
+
+          if (!guestInput.value.trim()) {
+            event.preventDefault();
+            showToolbarError("Please enter your name and last name before submitting.");
+            guestInput.focus();
+            return;
+          }
 
           const categoryInputs = Array.from(
             form.querySelectorAll('input[type="radio"][name^="category_"]')
           );
           const categoryNames = [...new Set(categoryInputs.map((input) => input.name))];
-          const missingCount = categoryNames.filter((name) => {
+          const missingNames = categoryNames.filter((name) => {
             return !form.querySelector(`input[name="${CSS.escape(name)}"]:checked`);
-          }).length;
+          });
 
-          if (missingCount > 0) {
+          if (missingNames.length > 0) {
             event.preventDefault();
-            const label = missingCount === 1 ? "category is" : "categories are";
-            showClientError(`Please answer all questions before submitting. ${missingCount} ${label} still missing.`);
+            const label = missingNames.length === 1 ? "category is" : "categories are";
+            const message = `Please, make selections for all categories before submitting. ${missingNames.length} ${label} still missing.`;
+            showToolbarError(message);
+            missingNames.forEach((name) => {
+              const input = categoryInputs.find((i) => i.name === name);
+              if (input) {
+                const card = input.closest(".card");
+                if (card) card.classList.add("is-missing");
+              }
+            });
             return;
           }
 
@@ -227,7 +270,7 @@
       })();
     </script>
   {% elif not all_decided and not edit_mode %}
-    <form class="ballot-form" method="post" action="/submit" id="ballot-form">
+    <form class="ballot-form" method="post" action="/submit" id="ballot-form" novalidate>
       <section class="card">
         <label class="field-label" for="guest_name">Your name</label>
         <input id="guest_name" name="guest_name" class="text-input" value="" required>
@@ -286,6 +329,7 @@
         const form = document.getElementById("ballot-form");
         const submitButton = document.getElementById("submit-ballot-btn");
         const clientError = document.getElementById("ballot-client-error");
+        const toolbarError = document.getElementById("ballot-toolbar-error");
         const hint = document.getElementById("name-duplicate-hint");
         const viewAction = document.getElementById("name-duplicate-view-action");
 
@@ -311,6 +355,22 @@
           }
           clientError.textContent = "";
           clientError.style.display = "none";
+        }
+
+        function showToolbarError(message) {
+          if (!toolbarError) {
+            return;
+          }
+          toolbarError.textContent = message;
+          toolbarError.style.display = "inline";
+        }
+
+        function clearToolbarError() {
+          if (!toolbarError) {
+            return;
+          }
+          toolbarError.textContent = "";
+          toolbarError.style.display = "none";
         }
 
         function setSavingState() {
@@ -361,6 +421,11 @@
         form.addEventListener("change", function (event) {
           if (event.target !== guestInput) {
             clearClientError();
+            const card = event.target.closest(".card");
+            if (card) card.classList.remove("is-missing");
+            if (!form.querySelector(".card.is-missing")) {
+              clearToolbarError();
+            }
           }
         });
 
@@ -370,19 +435,36 @@
             return;
           }
           clearClientError();
+          clearToolbarError();
+          form.querySelectorAll(".card.is-missing").forEach((card) => card.classList.remove("is-missing"));
+
+          if (!guestInput.value.trim()) {
+            event.preventDefault();
+            showToolbarError("Please enter your name before submitting.");
+            guestInput.focus();
+            return;
+          }
 
           const categoryInputs = Array.from(
             form.querySelectorAll('input[type="radio"][name^="category_"]:not([disabled])')
           );
           const categoryNames = [...new Set(categoryInputs.map((input) => input.name))];
-          const missingCount = categoryNames.filter((name) => {
+          const missingNames = categoryNames.filter((name) => {
             return !form.querySelector(`input[name="${CSS.escape(name)}"]:checked`);
-          }).length;
+          });
 
-          if (missingCount > 0) {
+          if (missingNames.length > 0) {
             event.preventDefault();
-            const label = missingCount === 1 ? "category is" : "categories are";
-            showClientError(`Please answer all open questions before submitting. ${missingCount} ${label} still missing.`);
+            const label = missingNames.length === 1 ? "category is" : "categories are";
+            const message = `Please answer all open questions before submitting. ${missingNames.length} ${label} still missing.`;
+            showToolbarError(message);
+            missingNames.forEach((name) => {
+              const input = categoryInputs.find((i) => i.name === name);
+              if (input) {
+                const card = input.closest(".card");
+                if (card) card.classList.add("is-missing");
+              }
+            });
             return;
           }
 

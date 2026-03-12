@@ -111,6 +111,13 @@ body {
   gap: 12px;
 }
 
+.ballot-toolbar__error {
+  font-size: 0.875rem;
+  max-width: 240px;
+  text-align: right;
+  line-height: 1.3;
+}
+
 .card {
   background: var(--paper);
   color: var(--accent);
@@ -136,9 +143,9 @@ h1, h2 {
 }
 
 .card.is-missing {
-  outline: 2px solid #c0392b;
-  outline-offset: -2px;
-  box-shadow: 0 0 0 4px rgba(192, 57, 43, 0.25), 0 10px 30px rgba(0, 0, 0, 0.2);
+  border: 2px solid #c0392b;
+  background: #fdf5f5;
+  box-shadow: 0 0 0 4px rgba(192, 57, 43, 0.2), 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
 .ballot-form {
